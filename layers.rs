@@ -342,42 +342,42 @@ impl LayerBufferSet {
 pub struct CompositorLayer {
     pub container_layer: Rc<ContainerLayer>,
     pub pipeline_id: uint, // maybe can remove?
-    pub id: LayerId,
+    pub id: RefCell<LayerId>,
 
     /// This layer's quadtree. This is where all buffers are stored for this layer.
-    pub quadtree: MaybeQuadtree,
+    pub quadtree: RefCell<MaybeQuadtree>,
 
     /// The size of the underlying page in page coordinates. This is an option
     /// because we may not know the size of the page until layout is finished completely.
     /// if we have no size yet, the layer is hidden until a size message is recieved.
-    pub page_size: Option<Size2D<f32>>,
+    pub page_size: RefCell<Option<Size2D<f32>>>,
 
     /// The offset of the page due to scrolling. (0,0) is when the window sees the
     /// top left corner of the page.
-    pub scroll_offset: TypedPoint2D<PagePx, f32>,
+    pub scroll_offset: RefCell<TypedPoint2D<PagePx, f32>>,
 
     /// This layer's quadtree. This is where all buffers are stored for this layer.
     //pub quadtree: MaybeQuadtree,
 
     /// When set to true, this layer is ignored by its parents. This is useful for
     /// soft deletion or when waiting on a page size.
-    pub hidden: bool,
+    pub hidden: RefCell<bool>,
 
     /// Whether an ancestor layer that receives scroll events moves this layer.
-    pub scroll_policy: ScrollPolicy,
+    pub scroll_policy: RefCell<ScrollPolicy>,
 
     /// True if CPU rendering is enabled, false if we're using GPU rendering.
-    pub cpu_painting: bool,
+    pub cpu_painting: RefCell<bool>,
 
     /// A monotonically increasing counter that keeps track of the current epoch.
     /// add_buffer() calls that don't match the current epoch will be ignored.
-    pub epoch: uint, //Epoch, //maybe can remove?
+    pub epoch: RefCell<uint>, //Epoch, //maybe can remove?
 
     /// The behavior of this layer when a scroll message is received.
-    pub wants_scroll_events: WantsScrollEventsFlag,
+    pub wants_scroll_events: RefCell<WantsScrollEventsFlag>,
 
     /// The color to use for the unrendered-content void
-    pub unrendered_color: Color,
+    pub unrendered_color: RefCell<Color>,
 }
 
 /// Helper enum for storing quadtrees. Either contains a quadtree, or contains
