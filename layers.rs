@@ -51,7 +51,7 @@ impl Layer {
                 f(&mut *texture_layer.common.borrow_mut())
             },
             CompositorLayerKind(ref compositor_layer) => {
-                f(&mut *compositor_layer.container_layer.common.borrow_mut())
+                f(&mut *compositor_layer.container_layer.borrow().common.borrow_mut())
             },
 
         }
@@ -340,7 +340,7 @@ impl LayerBufferSet {
 /// or animation behavior. This can include absolute positioned elements, iframes, etc.
 /// Each layer can also have child layers.
 pub struct CompositorLayer {
-    pub container_layer: ContainerLayer,
+    pub container_layer: RefCell<ContainerLayer>,
     pub pipeline_id: uint, // maybe can remove?
     pub id: LayerId,
 
