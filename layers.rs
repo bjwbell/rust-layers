@@ -388,8 +388,7 @@ pub enum MaybeQuadtree {
 }
 
 impl MaybeQuadtree {
-    #[allow(dead_code)]
-    fn tile_size(&self) -> uint {
+    pub fn tile_size(&self) -> uint {
         match *self {
             Tree(ref quadtree) => quadtree.max_tile_size,
             NoTree(tile_size, _) => tile_size,
