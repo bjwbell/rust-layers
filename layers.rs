@@ -8,11 +8,16 @@
 // except according to those terms.
 
 use texturegl::Texture;
+use quadtree::{Quadtree};
+use platform::surface::{NativeSurface, NativeSurfaceMethods};
 
 use geom::matrix::{Matrix4, identity};
 use geom::size::Size2D;
 use geom::rect::Rect;
+use geom::point::{TypedPoint2D};
+
 use std::cell::RefCell;
+use std::fmt::{Formatter, Result, Show};
 use std::rc::Rc;
 
 pub enum Format {
@@ -21,9 +26,19 @@ pub enum Format {
 }
 
 #[deriving(Clone)]
+pub struct Color {
+    pub r: f32,
+    pub g: f32,
+    pub b: f32,
+    pub a: f32,
+}
+
+
+#[deriving(Clone)]
 pub enum Layer {
     ContainerLayerKind(Rc<ContainerLayer>),
     TextureLayerKind(Rc<TextureLayer>),
+    CompositorLayerKind(Rc<CompositorLayer>),
 }
 
 impl Layer {
@@ -35,6 +50,10 @@ impl Layer {
             TextureLayerKind(ref texture_layer) => {
                 f(&mut *texture_layer.common.borrow_mut())
             },
+            CompositorLayerKind(ref compositor_layer) => {
+                f(&mut *compositor_layer.container_layer.common.borrow_mut())
+            },
+
         }
     }
 }
@@ -239,3 +258,141 @@ impl TextureLayer {
     }
 }
 
+
+#[deriving(Clone, Eq)]
+pub struct LayerId(pub uint, pub uint);
+
+impl Show for LayerId {
+    fn fmt(&self, f: &mut Formatter) -> Result {
+        let LayerId(a, b) = *self;
+        write!(f, "Layer({}, {})", a, b)
+    }
+}
+
+impl LayerId {
+    /// FIXME(#2011, pcwalton): This is unfortunate. Maybe remove this in the future.
+    pub fn null() -> LayerId {
+        LayerId(0, 0)
+    }
+}
+
+/// The scrolling policy of a layer.
+#[deriving(Eq)]
+pub enum ScrollPolicy {
+    /// These layers scroll when the parent receives a scrolling message.
+    Scrollable,
+    /// These layers do not scroll when the parent receives a scrolling message.
+    FixedPosition,
+}
+
+#[deriving(Eq, Clone)]
+pub enum WantsScrollEventsFlag {
+    WantsScrollEvents,
+    DoesntWantScrollEvents,
+}
+
+/// One CSS "px" in the root coordinate system for the content document.
+///
+/// PagePx is equal to ViewportPx multiplied by a "viewport zoom" factor controlled by the user.
+/// This is the mobile-style "pinch zoom" that enlarges content without reflowing it.  When the
+/// viewport zoom is not equal to 1.0, then the layout viewport is no longer the same physical size
+/// as the viewable area.
+pub enum PagePx {}
+
+
+pub struct LayerBuffer {
+    /// The native surface which can be shared between threads or processes. On Mac this is an
+    /// `IOSurface`; on Linux this is an X Pixmap; on Android this is an `EGLImageKHR`.
+    pub native_surface: NativeSurface,
+
+    /// The rect in the containing RenderLayer that this represents.
+    pub rect: Rect<f32>,
+
+    /// The rect in pixels that will be drawn to the screen.
+    pub screen_pos: Rect<uint>,
+
+    /// The scale at which this tile is rendered
+    pub resolution: f32,
+
+    /// NB: stride is in pixels, like OpenGL GL_UNPACK_ROW_LENGTH.
+    pub stride: uint,
+
+    /// Used by the RenderTask to route buffers to the correct graphics context for recycling
+    pub render_idx: uint
+}
+
+/// A set of layer buffers. This is an atomic unit used to switch between the front and back
+/// buffers.
+pub struct LayerBufferSet {
+    pub buffers: Vec<Box<LayerBuffer>>
+}
+
+impl LayerBufferSet {
+    /// Notes all buffer surfaces will leak if not destroyed via a call to `destroy`.
+    pub fn mark_will_leak(&mut self) {
+        for buffer in self.buffers.mut_iter() {
+            buffer.native_surface.mark_will_leak()
+        }
+    }
+}
+
+/// The CompositorLayer represents an element on a page that has a unique scroll
+/// or animation behavior. This can include absolute positioned elements, iframes, etc.
+/// Each layer can also have child layers.
+pub struct CompositorLayer {
+    pub container_layer: ContainerLayer,
+    pub pipeline_id: uint, // maybe can remove?
+    pub id: LayerId,
+
+    /// This layer's quadtree. This is where all buffers are stored for this layer.
+    pub quadtree: MaybeQuadtree,
+
+    /// The size of the underlying page in page coordinates. This is an option
+    /// because we may not know the size of the page until layout is finished completely.
+    /// if we have no size yet, the layer is hidden until a size message is recieved.
+    pub page_size: Option<Size2D<f32>>,
+
+    /// The offset of the page due to scrolling. (0,0) is when the window sees the
+    /// top left corner of the page.
+    pub scroll_offset: TypedPoint2D<PagePx, f32>,
+
+    /// This layer's quadtree. This is where all buffers are stored for this layer.
+    //pub quadtree: MaybeQuadtree,
+
+    /// When set to true, this layer is ignored by its parents. This is useful for
+    /// soft deletion or when waiting on a page size.
+    pub hidden: bool,
+
+    /// Whether an ancestor layer that receives scroll events moves this layer.
+    pub scroll_policy: ScrollPolicy,
+
+    /// True if CPU rendering is enabled, false if we're using GPU rendering.
+    pub cpu_painting: bool,
+
+    /// A monotonically increasing counter that keeps track of the current epoch.
+    /// add_buffer() calls that don't match the current epoch will be ignored.
+    pub epoch: uint, //Epoch, //maybe can remove?
+
+    /// The behavior of this layer when a scroll message is received.
+    pub wants_scroll_events: WantsScrollEventsFlag,
+
+    /// The color to use for the unrendered-content void
+    pub unrendered_color: Color,
+}
+
+/// Helper enum for storing quadtrees. Either contains a quadtree, or contains
+/// information from which a quadtree can be built.
+pub enum MaybeQuadtree {
+    Tree(Quadtree<Box<LayerBuffer>>),
+    NoTree(uint, Option<uint>),
+}
+
+impl MaybeQuadtree {
+    #[allow(dead_code)]
+    fn tile_size(&self) -> uint {
+        match *self {
+            Tree(ref quadtree) => quadtree.max_tile_size,
+            NoTree(tile_size, _) => tile_size,
+        }
+    }
+}

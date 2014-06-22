@@ -7,7 +7,7 @@
 // option. This file may not be copied, modified, or distributed
 // except according to those terms.
 
-use layers::{ContainerLayerKind, Flip, NoFlip, TextureLayerKind, VerticalFlip};
+use layers::{CompositorLayerKind, ContainerLayerKind, Flip, NoFlip, TextureLayerKind, VerticalFlip};
 use layers;
 use scene::Scene;
 use texturegl::{Texture, TextureTarget2D, TextureTargetRectangle};
@@ -388,6 +388,15 @@ impl Render for layers::TextureLayer {
     }
 }
 
+impl Render for layers::CompositorLayer {
+    fn render(&self,
+              render_context: RenderContext,
+              transform: Matrix4<f32>,
+              scene_size: Size2D<f32>) {
+        self.container_layer.render(render_context, transform, scene_size)
+    }
+}
+
 fn render_layer(render_context: RenderContext,
                 transform: Matrix4<f32>,
                 scene_size: Size2D<f32>,
@@ -398,6 +407,9 @@ fn render_layer(render_context: RenderContext,
         }
         TextureLayerKind(texture_layer) => {
             texture_layer.render(render_context, transform, scene_size)
+        }
+        CompositorLayerKind(compositor_layer) => {
+            compositor_layer.container_layer.render(render_context, transform, scene_size)
         }
     }
 }

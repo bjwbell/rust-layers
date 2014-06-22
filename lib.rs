@@ -37,9 +37,11 @@ extern crate egl;
 
 pub mod layers;
 pub mod color;
+pub mod quadtree;
 pub mod rendergl;
 pub mod scene;
 pub mod texturegl;
+pub mod tile;
 pub mod util;
 
 pub mod platform {
