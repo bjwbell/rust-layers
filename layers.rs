@@ -340,7 +340,7 @@ impl LayerBufferSet {
 /// or animation behavior. This can include absolute positioned elements, iframes, etc.
 /// Each layer can also have child layers.
 pub struct CompositorLayer {
-    pub container_layer: ContainerLayer,
+    pub container_layer: Rc<ContainerLayer>,
     pub pipeline_id: uint, // maybe can remove?
     pub id: LayerId,
 
