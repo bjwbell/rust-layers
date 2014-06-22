@@ -393,7 +393,7 @@ impl Render for layers::CompositorLayer {
               render_context: RenderContext,
               transform: Matrix4<f32>,
               scene_size: Size2D<f32>) {
-        self.container_layer.borrow().render(render_context, transform, scene_size)
+        self.container_layer.render(render_context, transform, scene_size)
     }
 }
 
@@ -409,7 +409,7 @@ fn render_layer(render_context: RenderContext,
             texture_layer.render(render_context, transform, scene_size)
         }
         CompositorLayerKind(compositor_layer) => {
-            compositor_layer.container_layer.borrow().render(render_context, transform, scene_size)
+            compositor_layer.container_layer.render(render_context, transform, scene_size)
         }
     }
 }
